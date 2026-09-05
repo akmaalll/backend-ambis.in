@@ -21,11 +21,14 @@ build/
 *.swp
 *.swo
 *~
+.antigravity/
+.agents/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Database
 *.db
@@ -35,10 +38,12 @@ build/
 alembic/versions/*.pyc
 alembic/__pycache__/
 
-# Testing
+# Testing & Quality
 .pytest_cache/
 .coverage
 htmlcov/
+.ruff_cache/
+.mypy_cache/
 
 # Logs
 *.log
