@@ -65,10 +65,10 @@ alembic upgrade head
 ### 7. Jalankan server
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8001
 ```
 
-API akan berjalan di `http://localhost:8000` dengan docs otomatis di `/docs`.
+API akan berjalan di `http://localhost:8001` dengan docs otomatis di `/docs`.
 
 ## Struktur
 
