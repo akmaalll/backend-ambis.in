@@ -1,5 +1,8 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
 from app.api.v1.schemas.learning_path import LearningPathCreate, LearningPathResponse
 from app.api.v1.services.learning_path import LearningPathService
@@ -20,7 +23,7 @@ async def list_learning_paths(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{path_id}", response_model=LearningPathResponse)
-async def get_learning_path(path_id: int, db: AsyncSession = Depends(get_db)):
+async def get_learning_path(path_id: UUID, db: AsyncSession = Depends(get_db)):
     service = LearningPathService(db)
     result = await service.get_by_id(path_id)
     if not result:
