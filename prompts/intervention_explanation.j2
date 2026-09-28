@@ -1,0 +1,27 @@
+The student has shown a specific, identified misconception — a systematic misunderstanding, not
+just a slip. A hint is not enough this time; re-teach the underlying idea so it doesn't recur.
+
+Question:
+{{ question }}
+
+Misconception identified:
+- what the student is doing wrong: {{ misconception_description }}
+{% if remediation_hint %}
+- curriculum team's remediation guidance: {{ remediation_hint }}
+{% endif %}
+{% if concept_reference %}
+
+Reference material for this concept (for YOUR grounding — reuse its ideas, don't quote it
+verbatim):
+{{ concept_reference }}
+{% endif %}
+
+Write a short, friendly re-explanation that:
+- names the misunderstanding in plain language the student will recognize in their own work
+- rebuilds the correct idea step by step, from first principles, using the reference material
+  above as grounding
+- ends by inviting the student to try the problem again themselves
+- does NOT state the final numeric/final-form answer to this specific problem
+
+Respond with JSON only, matching exactly this shape, no other text:
+{"text": "..."}
