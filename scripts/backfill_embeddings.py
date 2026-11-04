@@ -5,10 +5,12 @@ ORM model (see app/models/curriculum.py — pgvector ORM support is deferred), s
 this script talks to that column via raw SQL only, same pattern as
 StateManager's atomic UPSERT.
 
-Provider: gemini-embedding-001 via 9router, truncated to 768 dims via the
-`dimensions` param to match the existing vector(768) column with no schema
-migration. See Decisions/2026-09-16 - Embedding model gemini-embedding-001 via
-9router (vault) for why. LLMClient.embed() re-normalizes the truncated output
+Provider: gemini-embedding-001 via the configured OpenAI-compatible endpoint
+(Gemini), truncated to 768 dims via the `dimensions` param to match the
+existing vector(768) column with no schema migration. See the vault Decision
+"Embedding model gemini-embedding-001" (Projects/ambis-in) for why; the
+embedding model is unchanged by the 9router removal, so existing vectors stay
+compatible. LLMClient.embed() re-normalizes the truncated output
 to unit length before this script ever sees it.
 
 This is a manual script, not part of the test suite or CI — same category as

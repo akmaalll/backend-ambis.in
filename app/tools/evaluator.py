@@ -1,6 +1,6 @@
 """Evaluator — grading. See AMBIS_DB_Architecture.md §7.1-A-1.
 
-MCQ: deterministic key lookup, no LLM. Free-form/steps: one 9router call with
+MCQ: deterministic key lookup, no LLM. Free-form/steps: one LLM call with
 the grading-rubric prompt. That prompt NEVER sees ladder/intervention/session
 context — grading stays unbiased regardless of what happens next.
 """

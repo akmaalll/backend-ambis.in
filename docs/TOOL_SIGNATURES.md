@@ -15,15 +15,15 @@ Evaluator.evaluate()
     -> Diagnostician.diagnose()          (only if the attempt was wrong)
     -> PolicyEngine.next_intervention()
     -> InterventionGenerator.generate()  (only if PolicyEngine returned one of the 4 content kinds
-                                           below — "difficulty_up" etc. have no text to generate here)
+                                           below — "difficulty_up" etc. have no canvas to generate here)
     -> StateManager.update()
 ```
 
 `Evaluator` and `Diagnostician` never see each other's output — both take the same
 `(exercise, student_answer)` pair independently. `PolicyEngine` is pure (no DB/LLM) and only needs the
 attempt history for the *current problem*. `InterventionGenerator` takes `PolicyEngine`'s decision
-directly and turns it into student-facing text. `StateManager` is the only one that writes anything —
-call it last, after content generation, so a slow/failed LLM call for the intervention text doesn't
+directly and turns it into a student-facing canvas (a `VisualSpec`, see `app/core/visual_spec.py`). `StateManager` is the only one that writes anything —
+call it last, after content generation, so a slow/failed LLM call for the intervention canvas doesn't
 block the mastery-state write.
 
 ## 1. `Evaluator` — grading (`app/tools/evaluator.py`)
@@ -93,7 +93,7 @@ await state_manager.update(
 - Updates EWMA mastery, confidence, correct streak, and bumps `misconception_counts` in one statement.
 - Commits internally — call this last, after grading/diagnosis/policy are all resolved for the attempt.
 
-## 5. `InterventionGenerator` — student-facing text (`app/tools/intervention_generator.py`)
+## 5. `InterventionGenerator` — student-facing canvas (`app/tools/intervention_generator.py`)
 
 ```python
 InterventionGenerator(db: AsyncSession, llm_client: LLMClient)
@@ -104,16 +104,22 @@ await intervention_generator.generate(
     student_answer: str | None = None,      # optional extra grounding, "hint" kind only
     misconception_code: str | None = None,  # required when decision.kind == "explanation"
 ) -> InterventionContent
-# InterventionContent(text: str)  -- matches interventions.content -> {"text": "..."}
+# InterventionContent(visual: VisualSpec)  -- stored as interventions.content -> {"visual": spec.to_payload()}
 ```
 
 - Dispatches on `decision.kind`; only handles the four kinds `PolicyEngine` can return
   (`guiding_question` / `hint` / `explanation` / `worked_example`) — raises `ValueError` for any other
   kind (e.g. the Learning Path kinds `easier_exercise`/`prerequisite_review`/`difficulty_up`, which have
-  no text-generation step here).
-- One LLM call per invocation via the intervention prompt suite (`prompts/intervention_*.j2`), SMP-VII
-  tone, same `LLMResponseError` contract as `Evaluator`/`Diagnostician`.
-- **Never reveals the final answer**, at any rung — enforced in the system prompt and, for
+  no canvas-generation step here).
+- One LLM call per invocation via the intervention prompt suite (`prompts/intervention_*.j2`, all
+  sharing `prompts/_visual_spec_contract.j2`), SMP-VII tone. The LLM returns `{title, blocks}`;
+  `intervention_kind` and `spec_version` are set by code, never trusted from the model.
+- Output is validated by `parse_visual_spec` (schema, block types allowed per kind, arithmetic
+  consistency, no final-answer leak). An invalid spec is retried **once** with the rejection reason
+  appended; if it is still invalid, `LLMResponseError` is raised (same contract as
+  `Evaluator`/`Diagnostician`), and the caller falls back to `fallback_note_spec`.
+- **Never reveals the final answer**, at any rung — enforced in the system prompt, by the leak check on
+  the finished spec (`exercise.correct_answer` in any equivalent numeric form) and, for
   `worked_example`, structurally: only `exercise.solution_steps[:-1]` is ever sent to the LLM, since by
   seed-data convention the last step states the literal answer.
 - `explanation` looks up the misconception's `description`/`remediation_hint` plus a plain
@@ -143,6 +149,17 @@ Evaluator to the `attempts` INSERT and StateManager.update(). `attempt_repositor
 also filters to `is_correct=False` rows for the same reason — don't reuse it as a generic
 "all attempts" fetch.
 
+## SSE / response contract (canvas)
+
+`hermes_agent.py` no longer streams `token` events. After `StateManager.update`, a wrong
+attempt emits one `visual` event whose data is the whole VisualSpec (`app/core/visual_spec.py`,
+contract in `AMBIS_Visual_Spec_Draft.md`), then `done`. `tool_result` for
+`InterventionGenerator.generate` now carries `{tool_name, blocks}` (block count) instead of text.
+`done` and `HermesNonStreamResponse.intervention` are `{kind, rule_code, reason, visual}`
+(`visual` is `null` only if no content kind applied). On LLM failure or an invalid spec the
+service substitutes a single `note` block holding `decision.reason`. `interventions.content` is
+now `{"visual": {...}}`; rows written before this change hold `{"text": "..."}`.
+
 ## Not covered here (still open)
 
 - Intent/concept-mapping from free text, `CurriculumRetriever` vector search, `ExerciseSelector`,
@@ -152,5 +169,5 @@ also filters to `is_correct=False` rows for the same reason — don't reuse it a
 - `ask.py`/`AskService` (free-text Q&A) — untouched, out of scope for the wiring task.
 - `/sessions` / `/problems` CRUD routes — don't exist; the wiring auto-creates those rows inline
   when the caller omits `session_id`/`problem_id`.
-- Live end-to-end smoke test against real Supabase + a filled-in 9router `.env` — flagged for a
+- Live end-to-end smoke test against real Supabase + a filled-in LLM endpoint `.env` (Gemini) — flagged for a
   manual check, not run as part of this task (same carve-out as every other build-order item).

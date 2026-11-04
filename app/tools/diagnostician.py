@@ -1,7 +1,7 @@
 """Diagnostician — misconception matching. See AMBIS_DB_Architecture.md §7.1-A-2.
 
 MCQ: options[].misconception_id lookup, no LLM — just resolves the UUID to a
-misconceptions.code. Free-form: 9router proposes a hypothesis, but it is only
+misconceptions.code. Free-form: the LLM proposes a hypothesis, but it is only
 ever accepted if it matches an existing misconceptions.code for this concept —
 closed-set classification, never open labeling.
 
@@ -53,7 +53,7 @@ class Diagnostician:
         return result.scalar_one_or_none()
 
     async def diagnose_freeform(self, exercise: Exercise, student_answer: str) -> str | None:
-        """9router proposes a hypothesis; accepted only if it's an exact match
+        """The LLM proposes a hypothesis; accepted only if it's an exact match
         against this concept's existing misconceptions.code set."""
         if len(student_answer) > _MAX_STUDENT_ANSWER_LENGTH:
             raise ValueError(

@@ -15,7 +15,7 @@ class FakeLLMClient:
 
     async def complete_json(self, model: str, system_prompt: str, user_prompt: str) -> dict:
         if self.should_fail:
-            raise RuntimeError("Simulated 9Router LLM failure")
+            raise RuntimeError("Simulated LLM failure")
         return self.response_payload
 
 

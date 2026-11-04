@@ -16,12 +16,13 @@ verbatim):
 {{ concept_reference }}
 {% endif %}
 
-Write a short, friendly re-explanation that:
-- names the misunderstanding in plain language the student will recognize in their own work
-- rebuilds the correct idea step by step, from first principles, using the reference material
-  above as grounding
-- ends by inviting the student to try the problem again themselves
-- does NOT state the final numeric/final-form answer to this specific problem
+Build a canvas with this layout:
+1. an "analogy_scene" showing an everyday picture of why the wrong idea fails; its "story" names the
+   misunderstanding in plain language the student will recognize in their own work.
+2. a "step_flow" that rebuilds the correct idea from first principles, 2-4 steps, using the reference
+   material above as grounding. Leave every step unlocked ("locked": false). Use a different, simpler
+   example than the student's problem if showing the same numbers would reveal the answer.
+3. a closing "note" inviting the student to try the problem again themselves.
+Do not add an "answer_input" block; the app shows its own answer box.
 
-Respond with JSON only, matching exactly this shape, no other text:
-{"text": "..."}
+{% include "_visual_spec_contract.j2" %}

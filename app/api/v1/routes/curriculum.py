@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.api.v1.schemas.curriculum import (
     ConceptResponse,
     ExerciseResponse,
+    PracticeConceptResponse,
     SubjectResponse,
     UnitResponse,
 )
@@ -21,6 +22,16 @@ async def list_subjects(db: AsyncSession = Depends(get_db)):
     """Fetch all available curriculum subjects (e.g. Matematika, Informatika)."""
     service = CurriculumService(db)
     return await service.list_subjects()
+
+
+@router.get(
+    "/practice",
+    response_model=list[PracticeConceptResponse],
+    summary="Student-safe catalog of concepts and their exercises",
+)
+async def list_practice_catalog(db: AsyncSession = Depends(get_db)):
+    """Exercises grouped by concept for the canvas picker — never includes answers or solution steps."""
+    return await CurriculumService(db).list_practice_catalog()
 
 
 @router.get(

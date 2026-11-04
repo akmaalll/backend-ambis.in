@@ -114,3 +114,34 @@ async def test_curriculum_service_get_concept():
     found = await service.get_concept(cid)
     assert found is not None
     assert found.code == "TEST"
+
+
+@pytest.mark.asyncio
+async def test_practice_catalog_is_student_safe_and_grouped_by_concept():
+    concept = Concept(id=uuid4(), unit_id=uuid4(), code="C1", name="Penjumlahan Pecahan", position=1)
+    empty_concept = Concept(id=uuid4(), unit_id=uuid4(), code="C2", name="Tanpa Soal", position=2)
+    mcq = Exercise(
+        id=uuid4(), concept_id=concept.id, difficulty=1, kind="mcq", is_diagnostic=True,
+        question="1/2 + 1/3 = ?",
+        options=[{"key": "A", "label": "2/5", "misconception_id": str(uuid4())},
+                 {"key": "B", "label": "5/6", "misconception_id": None}],
+        correct_answer="B", solution_steps=["3/6 + 2/6 = 5/6"],
+    )
+    free = Exercise(
+        id=uuid4(), concept_id=concept.id, difficulty=3, kind="short_answer", is_diagnostic=False,
+        question="3/5 + 1/4 = ?", options=None, correct_answer="17/20", solution_steps=["x"],
+    )
+    db = FakeSession([FakeResult(rows=[concept, empty_concept]), FakeResult(rows=[mcq, free])])
+
+    catalog = await CurriculumService(db).list_practice_catalog()
+
+    assert [c.code for c in catalog] == ["C1"]
+    dumped = catalog[0].model_dump(mode="json")
+    assert [e["kind"] for e in dumped["exercises"]] == ["mcq", "short_answer"]
+    assert dumped["exercises"][0]["options"] == [
+        {"key": "A", "label": "2/5"},
+        {"key": "B", "label": "5/6"},
+    ]
+    text = str(dumped)
+    for secret in ("correct_answer", "solution_steps", "misconception_id", "17/20"):
+        assert secret not in text

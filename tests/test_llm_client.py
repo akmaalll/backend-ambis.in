@@ -1,7 +1,7 @@
 """Tests for LLMClient — retry/backoff and response parsing.
 
 Uses httpx.MockTransport (part of httpx itself, no new dependency) instead of
-a live 9router endpoint, so these stay in the "no live network in automated
+a live LLM endpoint, so these stay in the "no live network in automated
 tests" pattern used by the rest of the suite.
 """
 import httpx
@@ -11,7 +11,7 @@ from app.core.llm_client import LLMClient, LLMResponseError
 
 
 def _client_with_handler(handler) -> LLMClient:
-    client = LLMClient(base_url="http://fake-9router/v1", api_key="test-key")
+    client = LLMClient(base_url="http://fake-llm/v1", api_key="test-key")
     client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=5.0)
     return client
 
@@ -127,7 +127,7 @@ async def test_embed_returns_vectors_in_input_order():
 
 @pytest.mark.asyncio
 async def test_embed_normalizes_truncated_vectors():
-    # Not unit-length, mimicking 9router's un-normalized dimensions-truncated output.
+    # Not unit-length, mimicking an un-normalized dimensions-truncated output.
     def handler(_request):
         return httpx.Response(200, json={"data": [{"index": 0, "embedding": [3.0, 4.0]}]})
 

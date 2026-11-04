@@ -4,11 +4,12 @@ recorded yet, so there is nothing to correct. Your only job is to help them STAR
 Question:
 {{ question }}
 
-Write ONE short guiding question that:
-- points the student toward the first thing they should notice or decide about this problem
-  (e.g. what operation is needed, what should be compared or found first)
-- does NOT explain the method and does NOT hint at the numeric/final-form answer
-- ends with a question mark
+Build a small canvas with this layout:
+1. a "note" block holding ONE short guiding question that points the student toward the first
+   thing they should notice or decide (e.g. what operation is needed, what should be compared or
+   found first). It must end with a question mark and must NOT explain the method.
+2. ONE picture block that makes the situation easier to see: an "analogy_scene" or a "fraction_bar"
+   (only when the problem is about fractions). It must not hint at the final answer.
+Do not add an "answer_input" block; the app shows its own answer box.
 
-Respond with JSON only, matching exactly this shape, no other text:
-{"text": "..."}
+{% include "_visual_spec_contract.j2" %}

@@ -1,0 +1,50 @@
+OUTPUT FORMAT — respond with ONE JSON object and nothing else (no markdown fences, no commentary):
+{"title": "short title, max 60 chars", "blocks": [ ...1 to 6 blocks... ]}
+
+Allowed block types for this response (use no others): {{ allowed | join(", ") }}.
+Every block may also carry an optional "caption" (max 140 chars). Block shapes:
+{% if "note" in allowed %}
+- note: {"type": "note", "tone": "info" | "warn" | "success", "text": "max 300 chars"}
+{% endif %}
+{% if "fraction_bar" in allowed %}
+- fraction_bar (1-3 proper fractions drawn as shaded bars; numerator <= denominator <= 24):
+  {"type": "fraction_bar", "rows": [{"label": "3/5", "numerator": 3, "denominator": 5}], "align_denominator": 20}
+  "align_denominator" is optional; when present every row must convert to it exactly (3/5 -> 12/20 is fine).
+{% endif %}
+{% if "number_line" in allowed %}
+- number_line (fractions as strings "a/b" or whole numbers; points and arrows must stay between start and end):
+  {"type": "number_line", "start": "0", "end": "1", "ticks": 20,
+   "points": [{"at": "12/20", "label": "12/20"}],
+   "arrows": [{"from": "12/20", "by": "5/20", "label": "+ 5/20", "hidden_end": true}]}
+  An arrow goes FROM a value BY an amount. Use "hidden_end": true for any arrow that would land on the
+  answer to the student's problem.
+{% endif %}
+{% if "analogy_scene" in allowed %}
+- analogy_scene (an everyday picture for the idea; items are 1-3 fractions shown in it):
+  {"type": "analogy_scene", "template": "pizza" | "coklat" | "botol_air" | "pita",
+   "story": "max 200 chars", "items": [{"fraction": "3/5"}]}
+{% endif %}
+{% if "step_flow" in allowed %}
+- step_flow (1-6 numbered steps, n = 1..N in order):
+  {"type": "step_flow", "steps": [{"n": 1, "title": "max 60 chars", "detail": "max 140 chars",
+   "math": "5 x 4 = 20", "locked": false}]}
+  "detail" and "math" are optional. A step with "locked": true is shown greyed-out for the student to
+  complete; its "math" MUST contain a "?" in place of the part the student must work out.
+{% endif %}
+
+RULES (a response that breaks any of them is rejected):
+- All student-facing text in natural Bahasa Indonesia for a 12-13 year old: simple words, short
+  sentences, friendly tone. Never use English in student-facing text.
+- Write fractions as plain "a/b" text. No LaTeX, no markdown, no HTML anywhere.
+- A "math" field may contain ONLY digits, spaces and the characters / + - x ÷ = ? ( ) . , ; — put words in
+  "title" or "detail", never in "math".
+- To write several equalities in one "math" field, separate them with ";" (never with a comma).
+  Every equality you write MUST be arithmetically true.
+{% if allow_answer %}
+- You MAY state the final result when the student asked a direct question, but show how it is
+  obtained; every number you write must be correct.
+{% else %}
+- NEVER state, compute, draw or mark the final answer to the student's problem, in any form
+  (fraction, simplified or unsimplified, decimal) and in any field. Intermediate values are fine.
+{% endif %}
+- Use fraction blocks only when the problem is about fractions; otherwise rely on note and step_flow.

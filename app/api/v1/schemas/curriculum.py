@@ -45,3 +45,26 @@ class ExerciseResponse(CurriculumBaseSchema):
         validation_alias=AliasChoices("metadata_", "metadata"),
         serialization_alias="metadata",
     )
+
+
+class PracticeOption(CurriculumBaseSchema):
+    key: str
+    label: str
+
+
+class PracticeExercise(CurriculumBaseSchema):
+    """Student-safe exercise: no correct_answer, solution_steps or misconception ids."""
+
+    id: UUID
+    concept_id: UUID
+    difficulty: int = Field(..., ge=1, le=5)
+    kind: str
+    question: str
+    options: Optional[list[PracticeOption]] = None
+
+
+class PracticeConceptResponse(CurriculumBaseSchema):
+    id: UUID
+    code: str
+    name: str
+    exercises: list[PracticeExercise]

@@ -2,11 +2,11 @@
 
 Runs three golden sets and prints per-case pass/fail + an accuracy summary:
   - policy:    PolicyEngine.next_intervention — pure, no LLM/DB, always runs.
-  - grading:   Evaluator.evaluate_freeform — needs a live 9router endpoint.
-  - diagnosis: Diagnostician.diagnose_freeform — needs live 9router + live DB
+  - grading:   Evaluator.evaluate_freeform — needs a live LLM endpoint.
+  - diagnosis: Diagnostician.diagnose_freeform — needs a live LLM endpoint + live DB
                (to fetch the concept's misconceptions as candidates).
 
-Meant to be run manually by the user once real 9router credentials are filled
+Meant to be run manually by the user once real LLM endpoint credentials are filled
 into `.env` ("run on every prompt/policy change" per the architecture doc) —
 not part of the Docker/pytest CI target, since it needs live network/DB access
 that the sandboxed test container doesn't have.

@@ -14,6 +14,7 @@ from app.api.v1.schemas.hermes import HermesAgentRequest
 from app.api.v1.services import hermes_agent as hermes_agent_module
 from app.api.v1.services.hermes_agent import HermesAgentService
 from app.core.llm_client import LLMResponseError
+from app.core.visual_spec import fallback_note_spec
 from app.tools.intervention_generator import InterventionContent
 
 
@@ -70,6 +71,10 @@ class FakeStateManager:
     async def update(self, student_id, concept_id, score, misconception_code):
         self.called_with = (student_id, concept_id, score, misconception_code)
         return SimpleNamespace(mastery=self.mastery, confidence=self.confidence)
+
+
+def _content(text: str, kind: str = "explanation") -> InterventionContent:
+    return InterventionContent(visual=fallback_note_spec(kind, text))
 
 
 def _exercise(**overrides):
@@ -137,7 +142,7 @@ async def test_correct_answer_skips_diagnostician_policy_and_intervention_genera
     assert done_payload.is_correct is True
     assert done_payload.misconception_code is None
     assert done_payload.decision is None
-    assert done_payload.intervention_text is None
+    assert done_payload.intervention_visual is None
 
 
 @pytest.mark.asyncio
@@ -147,7 +152,7 @@ async def test_wrong_answer_with_misconception_calls_all_five_tools_in_order(mon
         monkeypatch,
         eval_result=eval_result,
         misconception_code="ADDS_NUM_DENOM_DIRECTLY",
-        intervention_content=InterventionContent(text="Yuk kita bahas ulang..."),
+        intervention_content=_content("Yuk kita bahas ulang..."),
     )
     request = HermesAgentRequest(student_id=uuid4(), student_answer="3/7", exercise_id=uuid4())
 
@@ -165,7 +170,7 @@ async def test_wrong_answer_with_misconception_calls_all_five_tools_in_order(mon
 
     done_payload = next(payload for name, payload in events if name == "done")
     assert done_payload.misconception_code == "ADDS_NUM_DENOM_DIRECTLY"
-    assert done_payload.intervention_text == "Yuk kita bahas ulang..."
+    assert done_payload.intervention_visual["blocks"][0]["text"] == "Yuk kita bahas ulang..."
     assert service.state_manager.called_with[3] == "ADDS_NUM_DENOM_DIRECTLY"
 
 
@@ -184,7 +189,7 @@ async def test_llm_failure_in_intervention_generator_still_reaches_state_manager
 
     done_payload = next(payload for name, payload in events if name == "done")
     assert service.state_manager.called_with is not None
-    assert done_payload.intervention_text == done_payload.decision.reason
+    assert done_payload.intervention_visual["blocks"][0]["text"] == done_payload.decision.reason
 
 
 @pytest.mark.asyncio
@@ -193,7 +198,7 @@ async def test_state_manager_called_last(monkeypatch):
     service = _build_service(
         monkeypatch,
         eval_result=eval_result,
-        intervention_content=InterventionContent(text="Coba cek lagi."),
+        intervention_content=_content("Coba cek lagi."),
     )
     request = HermesAgentRequest(student_id=uuid4(), student_answer="wrong", exercise_id=uuid4())
 
@@ -201,3 +206,37 @@ async def test_state_manager_called_last(monkeypatch):
 
     tool_result_names = [payload["tool_name"] for name, payload in events if name == "tool_result"]
     assert tool_result_names[-1] == "StateManager.update"
+
+
+@pytest.mark.asyncio
+async def test_visual_event_replaces_token_stream_and_content_is_stored_as_visual(monkeypatch):
+    eval_result = SimpleNamespace(is_correct=False, error_type="conceptual")
+    service = _build_service(
+        monkeypatch,
+        eval_result=eval_result,
+        misconception_code="ADDS_NUM_DENOM_DIRECTLY",
+        intervention_content=_content("Yuk kita bahas ulang..."),
+    )
+    request = HermesAgentRequest(student_id=uuid4(), student_answer="3/7", exercise_id=uuid4())
+
+    events = [event async for event in service._run_pipeline(request)]
+
+    names = [name for name, _ in events]
+    assert "token" not in names
+    assert names.index("visual") < names.index("done")
+    visual = next(payload for name, payload in events if name == "visual")
+    assert visual["blocks"][0]["text"] == "Yuk kita bahas ulang..."
+
+    stored = [obj for obj in service.db.added if hasattr(obj, "kind")][0]
+    assert stored.content == {"visual": visual}
+
+
+@pytest.mark.asyncio
+async def test_no_visual_event_on_a_correct_answer(monkeypatch):
+    eval_result = SimpleNamespace(is_correct=True, error_type=None)
+    service = _build_service(monkeypatch, eval_result=eval_result)
+    request = HermesAgentRequest(student_id=uuid4(), student_answer="5/12", exercise_id=uuid4())
+
+    events = [event async for event in service._run_pipeline(request)]
+
+    assert "visual" not in [name for name, _ in events]

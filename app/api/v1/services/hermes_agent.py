@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.hermes import HermesAgentRequest, HermesNonStreamResponse
 from app.core.llm_client import LLMClient, LLMResponseError
+from app.core.visual_spec import fallback_note_spec
 from app.models.runtime import Attempt, Intervention
 from app.tools.attempt_repository import (
     get_exercise,
@@ -61,7 +62,7 @@ class PipelineResult:
     error_type: str | None
     misconception_code: str | None
     decision: PolicyDecision | None
-    intervention_text: str | None
+    intervention_visual: dict | None
     mastery: float
     confidence: float
 
@@ -166,10 +167,13 @@ class HermesAgentService:
                     misconception_code=misconception_code,
                 )
             except LLMResponseError:
-                # A flaky LLM call for wording must never block the mastery-state
-                # write below — fall back to the policy's own logged reason.
-                content = InterventionContent(text=decision.reason)
-            yield "tool_result", {"tool_name": "InterventionGenerator.generate", "text": content.text}
+                # A flaky or invalid LLM canvas must never block the mastery-state
+                # write below — fall back to a single note with the policy's own reason.
+                content = InterventionContent(visual=fallback_note_spec(decision.kind, decision.reason))
+            yield "tool_result", {
+                "tool_name": "InterventionGenerator.generate",
+                "blocks": len(content.visual.blocks),
+            }
 
         if decision is not None:
             db.add(
@@ -181,7 +185,7 @@ class HermesAgentService:
                     kind=decision.kind,
                     rule_code=decision.rule_code,
                     reason=decision.reason,
-                    content={"text": content.text} if content else None,
+                    content={"visual": content.visual.to_payload()} if content else None,
                 )
             )
             await db.flush()
@@ -199,11 +203,9 @@ class HermesAgentService:
             "confidence": state.confidence,
         }
 
-        if content is not None:
-            words = content.text.split(" ")
-            for i, word in enumerate(words):
-                chunk = word + (" " if i < len(words) - 1 else "")
-                yield "token", {"chunk": chunk, "index": i}
+        visual_payload = content.visual.to_payload() if content else None
+        if visual_payload is not None:
+            yield "visual", visual_payload
 
         yield "done", PipelineResult(
             session_id=session.id,
@@ -214,7 +216,7 @@ class HermesAgentService:
             error_type=eval_result.error_type,
             misconception_code=misconception_code,
             decision=decision,
-            intervention_text=content.text if content else None,
+            intervention_visual=visual_payload,
             mastery=state.mastery,
             confidence=state.confidence,
         )
@@ -261,7 +263,7 @@ def _build_done_payload(result: PipelineResult, processing_time_ms: int) -> dict
                 "kind": result.decision.kind,
                 "rule_code": result.decision.rule_code,
                 "reason": result.decision.reason,
-                "text": result.intervention_text,
+                "visual": result.intervention_visual,
             }
             if result.decision is not None
             else None

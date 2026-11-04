@@ -30,8 +30,8 @@ AVAILABLE_MODELS = [
         "id": "gemini/gemini-3.5-flash-lite",
         "name": "Kak Ambis AI",
         "provider": "9router",
-        "provider_label": "9router Gateway",
-        "description": "Model tutor adaptif cerdas & cepat via gateway 9router",
+        "provider_label": "Gemini",
+        "description": "Model tutor adaptif cerdas & cepat via Gemini",
         "is_free": True,
         "icon": "⚡",
     },
@@ -286,7 +286,7 @@ async def _stream_openrouter(
 
 
 # ---------------------------------------------------------------------------
-# 9router Gateway Provider (OpenAI-compatible)
+# OpenAI-compatible gateway provider (LLM_BASE_URL)
 # ---------------------------------------------------------------------------
 async def _complete_9router(
     model_name: str,
@@ -294,7 +294,7 @@ async def _complete_9router(
     user_prompt: str,
     messages: list[dict[str, str]] | None = None,
 ) -> str:
-    """Call 9router via OpenAI-compatible REST API with automatic retry and model fallback."""
+    """Call the gateway (LLM_BASE_URL) via OpenAI-compatible REST API with automatic retry and model fallback."""
     url = f"{settings.llm_base_url.rstrip('/')}/chat/completions"
 
     if messages:
@@ -332,7 +332,7 @@ async def _complete_9router(
                     if response.status_code != 200:
                         err_text = response.text
                         logger.warning(
-                            "9router complete error (model=%s, status=%s): %s",
+                            "gateway complete error (model=%s, status=%s): %s",
                             attempt_model,
                             response.status_code,
                             err_text[:200],
@@ -351,7 +351,7 @@ async def _complete_9router(
 
     if last_error:
         raise last_error
-    raise RuntimeError("9router request failed after all attempts and fallbacks.")
+    raise RuntimeError("gateway request failed after all attempts and fallbacks.")
 
 
 async def _stream_9router(
@@ -360,7 +360,7 @@ async def _stream_9router(
     user_prompt: str,
     messages: list[dict[str, str]] | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Stream 9router via OpenAI-compatible /chat/completions?stream=true with automatic retry and model fallback."""
+    """Stream the gateway via OpenAI-compatible /chat/completions?stream=true with automatic retry and model fallback."""
     url = f"{settings.llm_base_url.rstrip('/')}/chat/completions"
 
     if messages:
@@ -399,7 +399,7 @@ async def _stream_9router(
                             err_bytes = await response.aread()
                             err_msg = err_bytes.decode(errors="replace")
                             logger.warning(
-                                "9router stream error (model=%s, status=%s): %s",
+                                "gateway stream error (model=%s, status=%s): %s",
                                 attempt_model,
                                 response.status_code,
                                 err_msg[:200],
@@ -443,7 +443,7 @@ async def _stream_9router(
 class MultiAIClient:
     """
     Unified multi-provider AI client.
-    Routes via 9router when LLM_BASE_URL is configured, or direct providers.
+    Routes via the gateway when LLM_BASE_URL is configured, or direct providers.
     Supports multi-turn conversation messages.
     """
 
@@ -454,10 +454,10 @@ class MultiAIClient:
         user_prompt: str,
         messages: list[dict[str, str]] | None = None,
     ) -> str:
-        """Call the selected provider or 9router gateway."""
+        """Call the selected provider or gateway."""
         if settings.llm_base_url and settings.llm_api_key:
             target_model = model_id or settings.llm_model_intervention or DEFAULT_MODEL_ID
-            logger.info("MultiAIClient: routing via 9router model=%s (messages=%d)", target_model, len(messages) if messages else 1)
+            logger.info("MultiAIClient: routing via gateway model=%s (messages=%d)", target_model, len(messages) if messages else 1)
             return await _complete_9router(target_model, system_prompt, user_prompt, messages=messages)
 
         provider, model_name = _parse_provider(model_id)
@@ -513,11 +513,11 @@ class MultiAIClient:
         user_prompt: str,
         messages: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[str, None]:
-        """Stream response from 9router gateway or legacy direct providers."""
+        """Stream response from the gateway or legacy direct providers."""
         if settings.llm_base_url and settings.llm_api_key:
             target_model = model_id or settings.llm_model_intervention or DEFAULT_MODEL_ID
             logger.info(
-                "MultiAIClient.stream_text: routing via 9router model=%s (messages=%d)",
+                "MultiAIClient.stream_text: routing via gateway model=%s (messages=%d)",
                 target_model,
                 len(messages) if messages else 1,
             )

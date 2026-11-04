@@ -67,7 +67,7 @@ class AskService:
         references: list[str] = []
         try:
             retriever = CurriculumRetriever(self.db, self._llm_client)
-            chunks = await retriever.search(request.question, top_k=2, threshold=0.70)
+            chunks = await retriever.search(request.question, top_k=2)
             references = [c.content for c in chunks]
         except Exception as exc:
             logger.warning("RAG retrieval failed (non-critical): %s", exc)

@@ -1,8 +1,11 @@
-"""Thin async client for 9router — an OpenAI-compatible LLM proxy.
+"""Thin async client for any OpenAI-compatible LLM endpoint.
 
-Not Gemini (see Decisions/2026-09-15 - LLM provider adalah 9router, bukan
-Gemini, in the vault) — this deliberately talks OpenAI chat-completions shape
-over plain httpx (already a dependency), so no new SDK was needed.
+Currently pointed at Google Gemini's OpenAI-compatible endpoint
+(https://generativelanguage.googleapis.com/v1beta/openai) via LLM_BASE_URL /
+LLM_API_KEY; 9router was dropped as of 2026-10-04 (see the vault Decision
+"Lepas 9router" under Projects/ambis-in). This deliberately talks OpenAI
+chat-completions shape over plain httpx (already a dependency), so no SDK is
+needed and the provider can be swapped by configuration alone.
 
 Single-shot, constrained-JSON calls only — no streaming, no tool-calling.
 Transient failures (timeouts, connection errors, 5xx) get a small manual
@@ -10,9 +13,10 @@ retry with backoff (no new dependency, e.g. `tenacity` — plain `asyncio.sleep`
 is enough for this call volume); 4xx responses are not retried since retrying
 a bad request/auth failure can't succeed.
 
-Also exposes `embed()` for the same 9router instance's `/embeddings` endpoint
-(see Decisions/2026-09-16 - Embedding model gemini-embedding-001 via 9router,
-in the vault) — reuses the same connection pool and retry/backoff logic.
+Also exposes `embed()` for the same endpoint's `/embeddings` route (model
+`gemini-embedding-001`, 768 dims) — reuses the same connection pool and
+retry/backoff logic. Note: not every OpenAI-compatible provider has
+`/embeddings` (e.g. Groq does not), so chat and embeddings share one base URL.
 """
 import asyncio
 import json
@@ -25,7 +29,7 @@ _BASE_BACKOFF_SECONDS = 0.5
 
 
 class LLMResponseError(Exception):
-    """Raised when 9router returns an HTTP error, a non-JSON body, or JSON
+    """Raised when the LLM endpoint returns an HTTP error, a non-JSON body, or JSON
     that doesn't parse as an object. Callers (Evaluator/Diagnostician) decide
     what to do next — this class only reports that the contract was broken."""
 
@@ -33,9 +37,11 @@ class LLMResponseError(Exception):
 def _normalize(vector: list[float]) -> list[float]:
     """L2-normalize a vector to unit length.
 
-    9router's gemini-embedding-001 returns a unit vector at its native 3072
-    dims, but the `dimensions`-truncated output (Matryoshka truncation) is
-    NOT re-normalized server-side (measured norm ~0.567 at 768 dims). Cosine
+    gemini-embedding-001 returns a unit vector at its native 3072 dims, but
+    the `dimensions`-truncated output (Matryoshka truncation) was NOT
+    re-normalized server-side when measured through the former 9router proxy
+    (norm ~0.567 at 768 dims); re-normalizing here keeps vectors consistent
+    whatever the provider does. Cosine
     similarity — what curriculum_chunks' HNSW index uses — is scale-invariant,
     so this isn't required for correctness, but it keeps stored vectors
     consistent in case anything ever needs inner-product/L2 distance instead.
@@ -73,10 +79,10 @@ class LLMClient:
                 break
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code < 500 or is_last_attempt:
-                    raise LLMResponseError(f"9router request to {path} failed: {exc}") from exc
+                    raise LLMResponseError(f"LLM request to {path} failed: {exc}") from exc
             except httpx.HTTPError as exc:
                 if is_last_attempt:
-                    raise LLMResponseError(f"9router request to {path} failed: {exc}") from exc
+                    raise LLMResponseError(f"LLM request to {path} failed: {exc}") from exc
             await asyncio.sleep(_BASE_BACKOFF_SECONDS * (2**attempt))
 
         assert response is not None  # loop always raises or breaks with a response
@@ -118,7 +124,7 @@ class LLMClient:
         try:
             return response.json()
         except json.JSONDecodeError as exc:
-            raise LLMResponseError(f"9router returned invalid JSON: {exc}") from exc
+            raise LLMResponseError(f"LLM endpoint returned invalid JSON: {exc}") from exc
 
     async def complete_json(self, model: str, system_prompt: str, user_prompt: str) -> dict:
         """POST {base_url}/chat/completions with response_format=json_object,
@@ -150,7 +156,7 @@ class LLMClient:
                 cleaned = re.sub(r"\s*```$", "", cleaned)
             parsed = json.loads(cleaned, strict=False)
         except (KeyError, IndexError, TypeError):
-            raise LLMResponseError(f"9router response was not the expected format: {body!r}")
+            raise LLMResponseError(f"LLM response was not the expected format: {body!r}")
         except json.JSONDecodeError as exc:
             # Fallback: try to extract JSON object substring {...}
             match = re.search(r"\{.*\}", content, flags=re.DOTALL)
@@ -158,12 +164,12 @@ class LLMClient:
                 try:
                     parsed = json.loads(match.group(0), strict=False)
                 except json.JSONDecodeError:
-                    raise LLMResponseError(f"9router response was not valid JSON: {exc}") from exc
+                    raise LLMResponseError(f"LLM response was not valid JSON: {exc}") from exc
             else:
-                raise LLMResponseError(f"9router response was not valid JSON: {exc}") from exc
+                raise LLMResponseError(f"LLM response was not valid JSON: {exc}") from exc
 
         if not isinstance(parsed, dict):
-            raise LLMResponseError(f"9router JSON content was not an object: {parsed!r}")
+            raise LLMResponseError(f"LLM JSON content was not an object: {parsed!r}")
 
         return parsed
 
@@ -188,11 +194,11 @@ class LLMClient:
             rows = sorted(body["data"], key=lambda item: item["index"])
             vectors = [row["embedding"] for row in rows]
         except (KeyError, TypeError) as exc:
-            raise LLMResponseError(f"9router embeddings response was not the expected shape: {exc}") from exc
+            raise LLMResponseError(f"LLM embeddings response was not the expected shape: {exc}") from exc
 
         if len(vectors) != len(texts):
             raise LLMResponseError(
-                f"9router returned {len(vectors)} embedding(s) for {len(texts)} input(s)"
+                f"LLM endpoint returned {len(vectors)} embedding(s) for {len(texts)} input(s)"
             )
 
         return [_normalize(vector) for vector in vectors]

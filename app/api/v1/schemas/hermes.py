@@ -42,7 +42,7 @@ class InterventionPayload(BaseModel):
     kind: str
     rule_code: str
     reason: str
-    text: str
+    visual: dict[str, Any] | None
 
 
 class HermesNonStreamResponse(BaseModel):

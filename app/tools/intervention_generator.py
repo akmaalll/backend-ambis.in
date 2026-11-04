@@ -1,15 +1,16 @@
-"""InterventionGenerator — student-facing content for each intervention kind.
+"""InterventionGenerator — student-facing canvas content for each intervention kind.
 
-See AMBIS_DB_Architecture.md §7.1-B (prompt suite) and §7.2 item 4.
+See AMBIS_DB_Architecture.md §7.1-B (prompt suite), §7.2 item 4 and
+AMBIS_Visual_Spec_Draft.md.
 
 PolicyEngine (app/tools/policy_engine.py) decides WHICH kind of intervention to
-give — deterministic, no LLM. This tool generates the actual TEXT shown to the
-student for that kind: one 9router call per kind, SMP-VII tone, and — per the
-architecture's explicit guard ("never give the final answer before ladder
-allows it") — never reveals the exercise's final answer, even at the
-worked_example rung, the ladder's last step before a human/instructor would
-step in (see AMBIS_DB_Architecture.md line ~305: "mistake #3+ -> worked_example
-(still not the final answer)").
+give — deterministic, no LLM. This tool generates what the student SEES for that
+kind: a VisualSpec (app/core/visual_spec.py), one LLM call per kind, SMP-VII tone.
+The LLM only fills fields; block layout per kind, numeric consistency and the
+architecture's explicit guard ("never give the final answer before ladder allows
+it") are enforced in code by parse_visual_spec. A spec that fails validation is
+retried once with the rejection reason, then surfaces as LLMResponseError so the
+caller can fall back to a plain note.
 
 Only the four per-attempt kinds PolicyEngine can return are handled here —
 'easier_exercise' / 'prerequisite_review' / 'difficulty_up' belong to the
@@ -27,8 +28,7 @@ Grounding sources per kind (all read-only, no writes):
   search — at current scale there is exactly one chunk per concept (see
   Decisions/2026-09-16 - Embedding model gemini-embedding-001 via 9router,
   vault), so real top-k retrieval is deferred to item 5 (RAG for Learning
-  Path) rather than needed here. This also means item 4 does not depend on
-  the (deliberately not-yet-run) embedding backfill.
+  Path) rather than needed here.
 - worked_example: the exercise's own solution_steps, MINUS the last step —
   by seed-data convention the final step states the literal answer (see
   AMBIS_DB_Schema_Seed_Example.sql), so it is never sent to the model.
@@ -40,16 +40,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm_client import LLMClient, LLMResponseError
 from app.core.prompts import render_prompt
+from app.core.visual_spec import (
+    ALLOWED_BLOCKS,
+    SPEC_VERSION,
+    VisualSpec,
+    VisualSpecError,
+    parse_visual_spec,
+)
 from app.models.curriculum import CurriculumChunk, Exercise, Misconception
 from app.tools.policy_engine import PolicyDecision
 
 # Same rationale as Evaluator/Diagnostician: student_answer is untrusted free text.
 _MAX_STUDENT_ANSWER_LENGTH = 2000
 
+_MAX_SPEC_ATTEMPTS = 2
+
 _VALID_KINDS = {"guiding_question", "hint", "explanation", "worked_example"}
 
 _INTERVENTION_SYSTEM_PROMPT = (
     "You are a warm, patient tutor for Indonesian middle-school (SMP Kelas VII) students. "
+    "You answer with a JSON canvas specification that the app renders as visuals, never as chat. "
     "Write ALL student-facing text in natural Bahasa Indonesia suitable for a 12-13 year old — "
     "simple words, short sentences, encouraging tone, no jargon. "
     "CRITICAL RULE: never state the final numeric or final-form answer to the student's current "
@@ -63,7 +73,7 @@ _INTERVENTION_SYSTEM_PROMPT = (
 
 @dataclass
 class InterventionContent:
-    text: str  # matches interventions.content -> {"text": "..."} (architecture §7.1-B)
+    visual: VisualSpec  # stored as interventions.content -> {"visual": spec.to_payload()}
 
 
 class InterventionGenerator:
@@ -100,13 +110,12 @@ class InterventionGenerator:
         )
 
     async def _generate_guiding_question(self, exercise: Exercise) -> InterventionContent:
-        prompt = render_prompt("intervention_guiding_question", question=exercise.question)
-        result = await self.llm_client.complete_json(
-            model=_intervention_model(),
-            system_prompt=_INTERVENTION_SYSTEM_PROMPT,
-            user_prompt=prompt,
+        prompt = render_prompt(
+            "intervention_guiding_question",
+            question=exercise.question,
+            allowed=_prompt_blocks("guiding_question"),
         )
-        return _parse_content(result)
+        return await self._complete_spec("guiding_question", exercise, prompt)
 
     async def _generate_hint(self, exercise: Exercise, student_answer: str | None) -> InterventionContent:
         if student_answer is not None and len(student_answer) > _MAX_STUDENT_ANSWER_LENGTH:
@@ -119,13 +128,9 @@ class InterventionGenerator:
             question=exercise.question,
             solution_steps=exercise.solution_steps,
             student_answer=student_answer,
+            allowed=_prompt_blocks("hint"),
         )
-        result = await self.llm_client.complete_json(
-            model=_intervention_model(),
-            system_prompt=_INTERVENTION_SYSTEM_PROMPT,
-            user_prompt=prompt,
-        )
-        return _parse_content(result)
+        return await self._complete_spec("hint", exercise, prompt)
 
     async def _generate_explanation(
         self, exercise: Exercise, misconception_code: str | None
@@ -158,13 +163,9 @@ class InterventionGenerator:
             misconception_description=misconception_row.description,
             remediation_hint=misconception_row.remediation_hint,
             concept_reference=chunk_row.content if chunk_row else None,
+            allowed=_prompt_blocks("explanation"),
         )
-        result = await self.llm_client.complete_json(
-            model=_intervention_model(),
-            system_prompt=_INTERVENTION_SYSTEM_PROMPT,
-            user_prompt=prompt,
-        )
-        return _parse_content(result)
+        return await self._complete_spec("explanation", exercise, prompt)
 
     async def _generate_worked_example(self, exercise: Exercise) -> InterventionContent:
         steps = exercise.solution_steps
@@ -178,13 +179,35 @@ class InterventionGenerator:
             "intervention_worked_example",
             question=exercise.question,
             steps_except_last=steps[:-1],
+            allowed=_prompt_blocks("worked_example"),
         )
-        result = await self.llm_client.complete_json(
-            model=_intervention_model(),
-            system_prompt=_INTERVENTION_SYSTEM_PROMPT,
-            user_prompt=prompt,
+        return await self._complete_spec("worked_example", exercise, prompt)
+
+    async def _complete_spec(self, kind: str, exercise: Exercise, user_prompt: str) -> InterventionContent:
+        feedback = ""
+        last_error: VisualSpecError | None = None
+        for _ in range(_MAX_SPEC_ATTEMPTS):
+            result = await self.llm_client.complete_json(
+                model=_intervention_model(),
+                system_prompt=_INTERVENTION_SYSTEM_PROMPT,
+                user_prompt=user_prompt + feedback,
+            )
+            try:
+                return InterventionContent(visual=_parse_spec(result, kind, exercise.correct_answer))
+            except VisualSpecError as exc:
+                last_error = exc
+                feedback = (
+                    f"\n\nYour previous JSON was rejected: {exc}\n"
+                    "Return a corrected JSON object that follows every rule above."
+                )
+        raise LLMResponseError(
+            f"intervention spec for kind={kind!r} failed validation after "
+            f"{_MAX_SPEC_ATTEMPTS} attempts: {last_error}"
         )
-        return _parse_content(result)
+
+
+def _prompt_blocks(kind: str) -> list[str]:
+    return sorted(ALLOWED_BLOCKS[kind] - {"answer_input"})
 
 
 def _intervention_model() -> str:
@@ -193,12 +216,6 @@ def _intervention_model() -> str:
     return settings.llm_model_intervention
 
 
-def _parse_content(result: dict) -> InterventionContent:
-    if "text" not in result:
-        raise LLMResponseError(f"intervention response missing 'text': {result!r}")
-
-    text = result["text"]
-    if not isinstance(text, str) or not text.strip():
-        raise LLMResponseError(f"intervention response 'text' was not a non-empty string: {result!r}")
-
-    return InterventionContent(text=text)
+def _parse_spec(result: dict, kind: str, correct_answer: str | None) -> VisualSpec:
+    raw = {**result, "intervention_kind": kind, "spec_version": SPEC_VERSION}
+    return parse_visual_spec(raw, correct_answer=correct_answer)

@@ -14,12 +14,14 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 
-    # Legacy LLM proxy (9router) - kept for embeddings only
+    # OpenAI-compatible LLM endpoint for chat (grading/diagnosis/intervention)
+    # AND embeddings (same base URL + key). Gemini:
+    # https://generativelanguage.googleapis.com/v1beta/openai
     llm_base_url: str = ""
     llm_api_key: str = ""
-    llm_model_grading: str = "cc/PLACEHOLDER_MODEL"
-    llm_model_diagnosis: str = "cc/PLACEHOLDER_MODEL"
-    llm_model_intervention: str = "cc/PLACEHOLDER_MODEL"
+    llm_model_grading: str = "PLACEHOLDER_MODEL"
+    llm_model_diagnosis: str = "PLACEHOLDER_MODEL"
+    llm_model_intervention: str = "PLACEHOLDER_MODEL"
 
     # Embeddings
     embedding_model: str = "gemini-embedding-001"
