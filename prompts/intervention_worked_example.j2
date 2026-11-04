@@ -9,13 +9,14 @@ Worked-method steps, in order, EXCEPT the final step that states the result (use
 do not invent, skip, or reorder them):
 {{ steps_except_last }}
 
-Write a worked walkthrough that:
-- presents each of the steps above, one at a time, in a clear, friendly, numbered way
-- explains WHY each step is done, not just what it is
-- stops right after the last step shown above, and then explicitly invites the student to do the
-  one remaining step themselves (state what that final step is asking for, e.g. "now add the two
-  fractions together" — but do NOT compute it and do NOT state the final numeric/final-form
-  result)
+Build a canvas with this layout:
+1. optionally ONE "analogy_scene" that makes the first idea of the method concrete.
+2. a "step_flow" with one step per worked-method step above, in the same order, each explaining WHY
+   the step is done (put the numbers in "math", the reason in "detail"). Then add ONE extra FINAL step,
+   with "locked": true, describing the one remaining thing the student must do themselves (e.g. add the
+   two fractions together); its "math" must show the setup with a "?" where the result belongs. Do NOT
+   compute that last result anywhere.
+3. optionally ONE "number_line" whose arrow for the final step has "hidden_end": true.
+Do not add an "answer_input" block; the app shows its own answer box.
 
-Respond with JSON only, matching exactly this shape, no other text:
-{"text": "..."}
+{% include "_visual_spec_contract.j2" %}

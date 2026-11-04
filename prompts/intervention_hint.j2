@@ -17,11 +17,12 @@ says:
 <<<STUDENT_ANSWER_END>>>
 {% endif %}
 
-Write ONE short hint that:
-- points at the specific step the student most likely got stuck on or skipped
-- gives a nudge in the right direction WITHOUT performing that step for them and WITHOUT
-  revealing the final numeric/final-form answer
-- stays encouraging — this is their first or second try, not a failure
+Build a small canvas with this layout:
+1. a "note" block holding ONE short hint that points at the specific step the student most likely
+   got stuck on or skipped, WITHOUT performing that step for them. Stay encouraging — this is their
+   first or second try, not a failure.
+2. ONE visual block that helps with exactly that step: a "fraction_bar" or a "number_line" (only when
+   the problem is about fractions). It must not show the final answer.
+Do not add an "answer_input" block; the app shows its own answer box.
 
-Respond with JSON only, matching exactly this shape, no other text:
-{"text": "..."}
+{% include "_visual_spec_contract.j2" %}
