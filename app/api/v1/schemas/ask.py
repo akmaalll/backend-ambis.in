@@ -23,3 +23,14 @@ class AskResponse(BaseModel):
     processing_time_ms: int
     mode_used: str
     model_used: str = DEFAULT_MODEL_ID
+
+
+class VisualAskRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=500)
+
+
+class VisualAskResponse(BaseModel):
+    visual: dict
+    references: list[str] = []
+    degraded: bool = False
+    processing_time_ms: int
