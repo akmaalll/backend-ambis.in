@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import Base
+from app.api.v1.schemas.curriculum import PracticeConceptResponse, PracticeExercise, PracticeOption
 from app.models.curriculum import Subject, Unit, Concept, Exercise
 
 T = TypeVar("T", bound=Base)
@@ -62,3 +63,44 @@ class CurriculumService:
 
     async def get_exercise(self, exercise_id: UUID) -> Optional[Exercise]:
         return await self._get_by_id(Exercise, exercise_id)
+
+    async def list_practice_catalog(self) -> list[PracticeConceptResponse]:
+        """Concepts that have exercises, with student-safe exercise fields only."""
+        concepts = (
+            await self.db.execute(select(Concept).order_by(Concept.position.asc(), Concept.name.asc()))
+        ).scalars().all()
+        exercises = (
+            await self.db.execute(
+                select(Exercise).order_by(Exercise.difficulty.asc(), Exercise.is_diagnostic.desc())
+            )
+        ).scalars().all()
+
+        by_concept: dict[UUID, list[PracticeExercise]] = {}
+        for exercise in exercises:
+            by_concept.setdefault(exercise.concept_id, []).append(
+                PracticeExercise(
+                    id=exercise.id,
+                    concept_id=exercise.concept_id,
+                    difficulty=exercise.difficulty,
+                    kind=exercise.kind,
+                    question=exercise.question,
+                    options=_public_options(exercise.options),
+                )
+            )
+
+        return [
+            PracticeConceptResponse(
+                id=concept.id,
+                code=concept.code,
+                name=concept.name,
+                exercises=by_concept[concept.id],
+            )
+            for concept in concepts
+            if concept.id in by_concept
+        ]
+
+
+def _public_options(options) -> Optional[list[PracticeOption]]:
+    if not options:
+        return None
+    return [PracticeOption(key=str(o["key"]), label=str(o["label"])) for o in options]
