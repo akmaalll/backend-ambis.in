@@ -58,7 +58,7 @@ def _get_default_steps(
             ),
             RoadmapStepSchema(
                 id="step-4",
-                title="Latihan Terbimbing (Scaffolding)",
+                title="Latihan Terbimbing",
                 description="Latihan soal interaktif dengan kartu bimbingan bertahap dari Kak Ambis.",
                 type="practice",
                 has_quiz=True,
@@ -66,7 +66,7 @@ def _get_default_steps(
             RoadmapStepSchema(
                 id="step-5",
                 title="Evaluasi & Uji Pemahaman",
-                description="Uji pemahaman akhir dan kenaikan skor penguasaan konsep (mastery).",
+                description="Uji pemahaman akhir untuk melihat seberapa jauh kamu sudah paham.",
                 type="checkpoint",
                 has_quiz=True,
             ),
@@ -174,7 +174,7 @@ class LearningPathService:
                 steps = _get_default_steps(data.subtopic, data.diagnostic_score, data.misconceptions)
             return GenerateRoadmapResponse(
                 title=res.get("title", f"Roadmap Belajar: {data.subtopic}"),
-                reasoning=res.get("reasoning", "Roadmap telah dirancang khusus berdasarkan profil dan hasil pemahamanmu."),
+                reasoning=res.get("reasoning", "Peta belajar ini disusun khusus berdasarkan profil dan hasil pemahamanmu."),
                 steps=steps,
                 is_fallback=False,
             )
@@ -183,10 +183,10 @@ class LearningPathService:
             fallback_steps = _get_default_steps(data.subtopic, data.diagnostic_score, data.misconceptions)
             return GenerateRoadmapResponse(
                 title=f"Roadmap Belajar: {data.subtopic}",
-                reasoning="Roadmap belajar terstruktur disusun berdasarkan kurikulum inti.",
+                reasoning="Peta belajar disusun berdasarkan kurikulum inti.",
                 steps=fallback_steps,
                 is_fallback=True,
-                message="Maaf ya, Kak Ambis sedang mengalami sedikit kendala koneksi ke server AI saat menyusun roadmap otomatis. Untuk sementara, Kak Ambis siapkan rekomendasi kurikulum standar ini ya!",
+                message="Maaf ya, Kak Ambis sedang ada kendala koneksi saat menyusun peta belajar khusus untukmu. Untuk sementara, Kak Ambis siapkan peta belajar standar ini ya!",
             )
 
     async def generate_lesson_intro(self, data: LessonIntroRequest) -> LessonIntroResponse:
