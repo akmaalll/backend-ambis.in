@@ -191,7 +191,14 @@ class LLMClient:
         body = await self._post_with_retry("/embeddings", payload)
 
         try:
-            rows = sorted(body["data"], key=lambda item: item["index"])
+            # `index` is optional: Gemini's OpenAI-compatible endpoint omits it and returns rows in input order.
+            rows = [
+                row
+                for _, row in sorted(
+                    enumerate(body["data"]),
+                    key=lambda pair: pair[1].get("index", pair[0]),
+                )
+            ]
             vectors = [row["embedding"] for row in rows]
         except (KeyError, TypeError) as exc:
             raise LLMResponseError(f"LLM embeddings response was not the expected shape: {exc}") from exc
