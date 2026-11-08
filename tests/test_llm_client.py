@@ -126,6 +126,28 @@ async def test_embed_returns_vectors_in_input_order():
 
 
 @pytest.mark.asyncio
+async def test_embed_accepts_rows_without_an_index_field():
+    # Gemini's OpenAI-compatible endpoint returns rows without `index`, in input order.
+    def handler(_request):
+        return httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [
+                    {"object": "embedding", "embedding": [1.0, 0.0]},
+                    {"object": "embedding", "embedding": [0.0, 1.0]},
+                ],
+            },
+        )
+
+    client = _client_with_handler(handler)
+    vectors = await client.embed(["first", "second"], model="gemini-embedding-001")
+
+    assert vectors == [[1.0, 0.0], [0.0, 1.0]]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_embed_normalizes_truncated_vectors():
     # Not unit-length, mimicking an un-normalized dimensions-truncated output.
     def handler(_request):
