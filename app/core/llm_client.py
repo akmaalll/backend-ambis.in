@@ -61,13 +61,13 @@ def _normalize(vector: list[float]) -> list[float]:
 
 
 class LLMClient:
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self, base_url: str, api_key: str, timeout: float = 30.0):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         # One shared connection pool for the lifetime of this client, instead
         # of a fresh TCP+TLS handshake per call — call aclose() when done
         # (app shutdown, or end of a one-off script like eval/run_eval.py).
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = httpx.AsyncClient(timeout=timeout)
 
     async def aclose(self) -> None:
         await self._client.aclose()

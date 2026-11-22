@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     # a separate space from `embedding` (Gemini): the two are never mixed.
     embedding_local_url: str = ""
     embedding_local_model: str = "Qwen/Qwen3-Embedding-0.6B"
+    # CPU inference is slow (about 5 s per 800-char chunk), so the local client needs a long timeout.
+    embedding_local_timeout: float = 300.0
 
     # Minimum cosine similarity for a retrieved chunk, per embedding space (scales differ
     # between models; calibrated with rag-experiment/kalibrasi_threshold.py).
