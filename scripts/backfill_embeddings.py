@@ -46,7 +46,7 @@ _UPDATE_SQL = (
 
 _LOCAL_SELECT_SQL = "SELECT id, content FROM curriculum_chunks WHERE embedding_local IS NULL ORDER BY id"
 _LOCAL_UPDATE_SQL = "UPDATE curriculum_chunks SET embedding_local = CAST(:embedding AS vector) WHERE id = :id"
-_LOCAL_BATCH = 16
+_LOCAL_BATCH = 4
 
 
 def _to_pgvector_literal(vector: list[float]) -> str:
@@ -59,7 +59,7 @@ async def backfill_local() -> None:
         print("SKIPPED — settings.embedding_local_url (EMBEDDING_LOCAL_URL) is not configured.")
         return
 
-    client = LLMClient(base_url=settings.embedding_local_url, api_key="local")
+    client = LLMClient(base_url=settings.embedding_local_url, api_key="local", timeout=settings.embedding_local_timeout)
     try:
         async with async_session_factory() as db:
             rows = (await db.execute(sa.text(_LOCAL_SELECT_SQL))).all()

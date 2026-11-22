@@ -211,3 +211,8 @@ async def test_embed_retries_on_5xx_then_succeeds(monkeypatch):
     assert calls["n"] == 3
     assert vectors == [[1.0, 0.0]]
     await client.aclose()
+
+
+def test_timeout_is_configurable():
+    assert LLMClient(base_url="http://x/v1", api_key="k", timeout=123.0)._client.timeout.read == 123.0
+    assert LLMClient(base_url="http://x/v1", api_key="k")._client.timeout.read == 30.0

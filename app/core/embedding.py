@@ -26,7 +26,7 @@ def _get_local_client() -> LLMClient | None:
     if not settings.embedding_local_url:
         return None
     if _local_client is None:
-        _local_client = LLMClient(base_url=settings.embedding_local_url, api_key="local")
+        _local_client = LLMClient(base_url=settings.embedding_local_url, api_key="local", timeout=settings.embedding_local_timeout)
     return _local_client
 
 
