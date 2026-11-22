@@ -60,6 +60,7 @@ Dibaca oleh `app/core/config.py`. Variabel lingkungan (shell) mengalahkan isi `.
 | `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT |
 | `LLM_BASE_URL`, `LLM_API_KEY` | Endpoint LLM OpenAI-compatible untuk chat **dan** embeddings (satu base URL). Contoh Gemini: `https://generativelanguage.googleapis.com/v1beta/openai` |
 | `LLM_MODEL_GRADING`, `LLM_MODEL_DIAGNOSIS`, `LLM_MODEL_INTERVENTION` | Nama model untuk penilaian, diagnosis miskonsepsi, dan pembuatan kanvas (juga dipakai `ask/visual`) |
+| `EMBEDDING_LOCAL_URL`, `EMBEDDING_LOCAL_MODEL` | Opsional. Layanan embedding lokal (`local_embed/server.py`, mis. `http://127.0.0.1:8002/v1`) sebagai cadangan saat Gemini 429/5xx; kosong = tanpa fallback. Vektornya di kolom `embedding_local` (isi dengan `python -m scripts.backfill_embeddings --space local`) |
 | `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` | Default `gemini-embedding-001` dan `768` (harus cocok dengan kolom `vector(768)`) |
 | `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Kunci provider untuk jalur chat lama (`multi_ai.py`) |
 
@@ -144,7 +145,7 @@ Bukan bagian dari `pytest`. Yang bertanda ⚠ **menulis ke database bersama**.
 | `python -m scripts.fake_llm_server` | LLM tiruan tanpa kunci |
 | `python -m scripts.check_llm` | Cek kunci/endpoint LLM, tanpa database |
 | `python -m scripts.smoke_hermes_pipeline` ⚠ | Menjalankan pipeline Hermes ke DB asli (1 session, problem, attempt per skenario) |
-| `python -m scripts.backfill_embeddings` ⚠ | Mengisi vektor `curriculum_chunks` yang masih kosong |
+| `python -m scripts.backfill_embeddings` ⚠ | Mengisi vektor `curriculum_chunks` yang masih kosong (`--space local` untuk kolom `embedding_local`) |
 | `python -m eval.run_eval` | Evaluasi penilaian, diagnosis, dan kebijakan dengan LLM asli (set LLM yang belum dikonfigurasi dilewati) |
 
 ## Migrasi database

@@ -5,7 +5,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.embedding import SPACE_COLUMN, EmbeddingRouter
 from app.core.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ class CurriculumRetriever:
     def __init__(self, db: AsyncSession, llm_client: LLMClient):
         self.db = db
         self.llm_client = llm_client
+        self.router = EmbeddingRouter.from_settings(llm_client)
 
     async def search(self, query: str, top_k: int = 2, threshold: float = 0.65) -> list[RetrievedChunk]:
         """Search curriculum_chunks table using cosine similarity against the query embedding."""
@@ -33,22 +34,19 @@ class CurriculumRetriever:
             return []
 
         try:
-            vectors = await self.llm_client.embed(
-                texts=[query.strip()],
-                model=settings.embedding_model,
-                dimensions=settings.embedding_dimensions,
-            )
+            space, vectors = await self.router.embed([query.strip()], kind="query")
             if not vectors:
                 return []
+            column = SPACE_COLUMN[space]  # fixed whitelist, never user input
 
             vec_literal = "[" + ",".join(str(x) for x in vectors[0]) + "]"
 
-            sql = """
+            sql = f"""
                 SELECT id, concept_id, content, metadata,
-                       round((1 - (embedding <=> CAST(:vec AS vector)))::numeric, 4) as similarity
+                       round((1 - ({column} <=> CAST(:vec AS vector)))::numeric, 4) as similarity
                 FROM curriculum_chunks
-                WHERE embedding IS NOT NULL
-                ORDER BY embedding <=> CAST(:vec AS vector)
+                WHERE {column} IS NOT NULL
+                ORDER BY {column} <=> CAST(:vec AS vector)
                 LIMIT :limit;
             """
             result = await self.db.execute(

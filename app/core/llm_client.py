@@ -31,7 +31,15 @@ _BASE_BACKOFF_SECONDS = 0.5
 class LLMResponseError(Exception):
     """Raised when the LLM endpoint returns an HTTP error, a non-JSON body, or JSON
     that doesn't parse as an object. Callers (Evaluator/Diagnostician) decide
-    what to do next — this class only reports that the contract was broken."""
+    what to do next — this class only reports that the contract was broken.
+
+    `status_code` is the HTTP status when the failure was an HTTP error response
+    (None for transport errors and malformed bodies), so callers can tell a
+    quota 429 from a bad request."""
+
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def _normalize(vector: list[float]) -> list[float]:
@@ -79,7 +87,9 @@ class LLMClient:
                 break
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code < 500 or is_last_attempt:
-                    raise LLMResponseError(f"LLM request to {path} failed: {exc}") from exc
+                    raise LLMResponseError(
+                        f"LLM request to {path} failed: {exc}", status_code=exc.response.status_code
+                    ) from exc
             except httpx.HTTPError as exc:
                 if is_last_attempt:
                     raise LLMResponseError(f"LLM request to {path} failed: {exc}") from exc
@@ -173,14 +183,21 @@ class LLMClient:
 
         return parsed
 
-    async def embed(self, texts: list[str], model: str, dimensions: int | None = None) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        dimensions: int | None = None,
+        extra: dict | None = None,
+    ) -> list[list[float]]:
         """POST {base_url}/embeddings, return one unit-normalized vector per
         input text, in the same order as `texts` (re-sorted by the response's
         own `index` field — the OpenAI shape does not guarantee row order).
 
         `dimensions` requests Matryoshka truncation (e.g. 768 to match
         curriculum_chunks.embedding's vector(768) column) — omit for the
-        model's native dimensionality.
+        model's native dimensionality. `extra` merges additional fields into the
+        request body (the local embedding service reads `task`: query|document).
         """
         if not texts:
             return []
@@ -188,6 +205,8 @@ class LLMClient:
         payload: dict = {"model": model, "input": texts}
         if dimensions is not None:
             payload["dimensions"] = dimensions
+        if extra:
+            payload.update(extra)
         body = await self._post_with_retry("/embeddings", payload)
 
         try:
