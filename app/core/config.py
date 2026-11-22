@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     embedding_local_url: str = ""
     embedding_local_model: str = "Qwen/Qwen3-Embedding-0.6B"
 
+    # Minimum cosine similarity for a retrieved chunk, per embedding space (scales differ
+    # between models; calibrated with rag-experiment/kalibrasi_threshold.py).
+    retrieval_threshold_gemini: float = 0.65
+    retrieval_threshold_local: float = 0.55
+
     # Multi-AI Provider Keys
     gemini_api_key: str = ""
     groq_api_key: str = ""
