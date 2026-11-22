@@ -39,7 +39,9 @@ RULES (a response that breaks any of them is rejected):
 - A "math" field may contain ONLY digits, spaces and the characters / + - x ÷ = ? ( ) . , ; — put words in
   "title" or "detail", never in "math". Never write function names or abbreviations such as KPK, FPB or
   kpk(2, 3) inside "math". Wrong: "math": "KPK(2, 3) = 6". Right: "title": "Cari KPK dari 2 dan 3",
-  "math": "2 x 3 = 6".
+  "math": "2 x 3 = 6". Also never put the signs < or >, letters other than x, symbols such as pi, or any
+  name or sentence inside "math": say comparisons in words in "detail" (for example "1/2 lebih besar
+  dari 2/5"), and write a formula with only numbers, x, + - ÷ = and parentheses.
 - To write several equalities in one "math" field, separate them with ";" (never with a comma).
   Every equality you write MUST be arithmetically true.
 {% if allow_answer %}
