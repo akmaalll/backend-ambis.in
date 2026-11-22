@@ -211,3 +211,42 @@ async def test_closes_the_llm_client_on_the_happy_path(wired):
     await backfill.backfill()
 
     assert client.closed == 1
+
+
+# --- local space -------------------------------------------------------------
+
+
+def test_local_sql_targets_embedding_local_only():
+    assert "WHERE embedding_local IS NULL" in backfill._LOCAL_SELECT_SQL
+    assert "SET embedding_local =" in backfill._LOCAL_UPDATE_SQL
+    assert not BAD_CAST.search(backfill._LOCAL_UPDATE_SQL)
+
+
+@pytest.mark.asyncio
+async def test_local_backfill_skips_without_url(wired, monkeypatch):
+    session, client = wired([FakeRow(CHUNK_A, "a")])
+    monkeypatch.setattr(backfill.settings, "embedding_local_url", "")
+    await backfill.backfill_local()
+    assert session.statements == [] and client.embed_calls == []
+
+
+@pytest.mark.asyncio
+async def test_local_backfill_sends_documents_and_pairs_ids(wired, monkeypatch):
+    rows = [FakeRow(CHUNK_A, "a"), FakeRow(CHUNK_B, "b")]
+    session, client = wired(rows)
+    monkeypatch.setattr(backfill.settings, "embedding_local_url", "http://127.0.0.1:8002/v1")
+    monkeypatch.setattr(backfill.settings, "embedding_local_model", "local-model")
+
+    async def embed(texts, model, dimensions=None, extra=None):
+        client.embed_calls.append({"texts": list(texts), "model": model, "extra": extra})
+        return [[float(i + 1)] + [0.0] * 767 for i in range(len(texts))]
+
+    monkeypatch.setattr(client, "embed", embed)
+    await backfill.backfill_local()
+
+    assert client.embed_calls[0]["model"] == "local-model"
+    assert client.embed_calls[0]["extra"] == {"task": "document"}
+    updates = [p for sql, p in zip(session.statements, session.params) if "UPDATE" in sql]
+    assert [u["id"] for u in updates] == [CHUNK_A, CHUNK_B]
+    assert all("embedding_local" in sql for sql in session.statements if "UPDATE" in sql)
+    assert client.closed == 1

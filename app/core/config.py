@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
 
+    # Local fallback embedding service (local_embed/server.py, Qwen3-Embedding-0.6B).
+    # Empty URL = fallback disabled. Vectors live in curriculum_chunks.embedding_local,
+    # a separate space from `embedding` (Gemini): the two are never mixed.
+    embedding_local_url: str = ""
+    embedding_local_model: str = "Qwen/Qwen3-Embedding-0.6B"
+
     # Multi-AI Provider Keys
     gemini_api_key: str = ""
     groq_api_key: str = ""
