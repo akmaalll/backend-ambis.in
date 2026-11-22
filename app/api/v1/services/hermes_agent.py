@@ -20,6 +20,7 @@ and there is nothing to remediate. Only Evaluator, the attempts INSERT, and
 StateManager run in that case.
 """
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator
@@ -49,6 +50,8 @@ from app.tools.state_manager import StateManager
 # The 4 kinds PolicyEngine can return today that InterventionGenerator handles.
 # "difficulty_up" etc. (Learning Path kinds) have no text-generation step here
 # — see InterventionGenerator.generate's own ValueError for anything else.
+logger = logging.getLogger(__name__)
+
 _CONTENT_KINDS = {"guiding_question", "hint", "explanation", "worked_example"}
 
 
@@ -166,7 +169,13 @@ class HermesAgentService:
                     student_answer=request.student_answer if decision.kind == "hint" else None,
                     misconception_code=misconception_code,
                 )
-            except LLMResponseError:
+            except LLMResponseError as exc:
+                logger.warning(
+                    "intervention generation failed (kind=%s status=%s): falling back to policy note: %s",
+                    decision.kind,
+                    exc.status_code,
+                    str(exc)[:200],
+                )
                 # A flaky or invalid LLM canvas must never block the mastery-state
                 # write below — fall back to a single note with the policy's own reason.
                 content = InterventionContent(visual=fallback_note_spec(decision.kind, decision.reason))
