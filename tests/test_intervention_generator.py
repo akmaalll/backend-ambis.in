@@ -276,7 +276,7 @@ async def test_spec_that_stays_invalid_raises_llm_response_error():
 
     with pytest.raises(LLMResponseError):
         await generator.generate(_exercise(), decision)
-    assert len(llm_client.calls) == 2
+    assert len(llm_client.calls) == 3
 
 
 @pytest.mark.asyncio

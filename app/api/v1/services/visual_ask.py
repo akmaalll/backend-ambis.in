@@ -25,7 +25,7 @@ from app.core.visual_spec import (
 
 logger = logging.getLogger(__name__)
 
-_MAX_SPEC_ATTEMPTS = 2
+_MAX_SPEC_ATTEMPTS = 3
 
 _ASK_SYSTEM_PROMPT = (
     "You are a warm, patient tutor for Indonesian middle-school (SMP) students. "

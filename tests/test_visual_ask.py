@@ -99,13 +99,13 @@ async def test_retrieval_failure_is_not_fatal():
 
 
 @pytest.mark.asyncio
-async def test_invalid_spec_is_retried_once_then_raises():
+async def test_invalid_spec_is_retried_twice_then_raises():
     llm_client = FakeLLMClient({"title": "x", "blocks": []})
     service = VisualAskService(db=None, llm_client=llm_client, retriever=FakeRetriever())
 
     with pytest.raises(LLMResponseError):
         await service.process("apa itu KPK?")
-    assert len(llm_client.calls) == 2
+    assert len(llm_client.calls) == 3
     assert "Your previous JSON was rejected" in llm_client.calls[1]["user_prompt"]
 
 
