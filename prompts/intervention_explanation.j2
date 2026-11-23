@@ -1,0 +1,28 @@
+The student has shown a specific, identified misconception — a systematic misunderstanding, not
+just a slip. A hint is not enough this time; re-teach the underlying idea so it doesn't recur.
+
+Question:
+{{ question }}
+
+Misconception identified:
+- what the student is doing wrong: {{ misconception_description }}
+{% if remediation_hint %}
+- curriculum team's remediation guidance: {{ remediation_hint }}
+{% endif %}
+{% if concept_reference %}
+
+Reference material for this concept (for YOUR grounding — reuse its ideas, don't quote it
+verbatim):
+{{ concept_reference }}
+{% endif %}
+
+Build a canvas with this layout:
+1. an "analogy_scene" showing an everyday picture of why the wrong idea fails; its "story" names the
+   misunderstanding in plain language the student will recognize in their own work.
+2. a "step_flow" that rebuilds the correct idea from first principles, 2-4 steps, using the reference
+   material above as grounding. Leave every step unlocked ("locked": false). Use a different, simpler
+   example than the student's problem if showing the same numbers would reveal the answer.
+3. a closing "note" inviting the student to try the problem again themselves.
+Do not add an "answer_input" block; the app shows its own answer box.
+
+{% include "_visual_spec_contract.j2" %}

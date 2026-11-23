@@ -3,8 +3,7 @@ uvicorn[standard]==0.30.6
 pydantic==2.9.2
 pydantic-settings==2.5.2
 sqlalchemy==2.0.35
-asyncpg==0.29.0 ; sys_platform == 'linux' or sys_platform == 'darwin'
-psycopg2-binary==2.9.9 ; sys_platform == 'win32'
+asyncpg==0.31.0
 alembic==1.13.1
 python-multipart==0.0.9
 httpx==0.27.2

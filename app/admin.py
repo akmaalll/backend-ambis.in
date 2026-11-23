@@ -1,8 +1,8 @@
 from sqladmin import ModelView
-from app.models.learning_path import LearningPathModel
+from app.models.learning_path import LearningPath
 
 
-class LearningPathAdmin(ModelView, model=LearningPathModel):
-    column_list = [LearningPathModel.id, LearningPathModel.title, LearningPathModel.topic, LearningPathModel.difficulty, LearningPathModel.created_at]
-    column_searchable_list = [LearningPathModel.title, LearningPathModel.topic]
-    column_sortable_list = [LearningPathModel.id, LearningPathModel.created_at]
+class LearningPathAdmin(ModelView, model=LearningPath):
+    column_list = ["id", "student_id", "subject_id", "status", "created_at"]
+    column_searchable_list = ["status"]
+    column_sortable_list = ["id", "created_at"]

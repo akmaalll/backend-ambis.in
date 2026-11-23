@@ -1,22 +1,23 @@
-from datetime import datetime, timedelta
-from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
+import jwt
+from jwt.exceptions import PyJWTError
 from app.core.config import settings
 
-SECRET_KEY = "ambis-in-secret-key-change-in-production-2024"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 hari
 
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
+    )
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
-def verify_token(token: str):
+def verify_token(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
         return payload
-    except JWTError:
+    except PyJWTError:
         return None
