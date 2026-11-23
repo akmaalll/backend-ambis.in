@@ -193,6 +193,23 @@ async def test_llm_failure_in_intervention_generator_still_reaches_state_manager
 
 
 @pytest.mark.asyncio
+async def test_intervention_fallback_is_logged_with_status(monkeypatch, caplog):
+    eval_result = SimpleNamespace(is_correct=False, error_type="procedural")
+    service = _build_service(
+        monkeypatch,
+        eval_result=eval_result,
+        misconception_code=None,
+        intervention_error=LLMResponseError("upstream unavailable", status_code=503),
+    )
+    request = HermesAgentRequest(student_id=uuid4(), student_answer="wrong", exercise_id=uuid4())
+
+    with caplog.at_level("WARNING", logger="app.api.v1.services.hermes_agent"):
+        _ = [event async for event in service._run_pipeline(request)]
+
+    assert any("status=503" in r.getMessage() and "falling back" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
 async def test_state_manager_called_last(monkeypatch):
     eval_result = SimpleNamespace(is_correct=False, error_type="calculation")
     service = _build_service(

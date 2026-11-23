@@ -107,7 +107,7 @@ async def _run_scenario(name: str, answer: str, expect_correct: bool) -> bool:
     if result.intervention is not None:
         iv = result.intervention
         print(f"          intervention kind={iv.kind} rule={iv.rule_code}")
-        print(f"          text={iv.text[:100]!r}")
+        print(f"          reason={iv.reason[:100]!r}")
     else:
         print("          intervention=None (correct answer, nothing to remediate)")
     print(f"          mastery={result.mastery} confidence={result.confidence}")
