@@ -53,7 +53,7 @@ from app.tools.policy_engine import PolicyDecision
 # Same rationale as Evaluator/Diagnostician: student_answer is untrusted free text.
 _MAX_STUDENT_ANSWER_LENGTH = 2000
 
-_MAX_SPEC_ATTEMPTS = 2
+_MAX_SPEC_ATTEMPTS = 3
 
 _VALID_KINDS = {"guiding_question", "hint", "explanation", "worked_example"}
 
